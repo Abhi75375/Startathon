@@ -1,4 +1,7 @@
+using System.Text.Json.Serialization;
+
 namespace Backend.Models;
+
 
 public enum MaterialRequestStatus
 {
@@ -22,6 +25,7 @@ public enum MaterialRequestStatus
 public class MaterialRequest
 {
     public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid? MaterialEstimationReviewId { get; set; }
     public string MaterialCode { get; set; } = default!;
     public decimal QuantityRequested { get; set; }
     public string RequestedBy { get; set; } = default!;
@@ -39,4 +43,10 @@ public class MaterialRequest
 
     public string? SelectedSupplierTelegramChatId { get; set; }
     public string? ExcludedSupplierIds { get; set;}
+    [JsonIgnore]
+    public MaterialEstimationReview? MaterialEstimationReview { get; set; }
+    [JsonIgnore]
+    public List<ProcurementRequest> ProcurementRequests { get; set; } = new();
+    [JsonIgnore]
+    public List<PurchaseOrder> PurchaseOrders { get; set; } = new();
 }

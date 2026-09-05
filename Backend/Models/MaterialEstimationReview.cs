@@ -17,6 +17,7 @@ public class MaterialEstimationReview
     public DateTime? ReviewedAt { get; set; }
 
     public List<MaterialEstimationReviewItem> Items { get; set; } = new();
+    public List<MaterialRequest> MaterialRequests { get; set; } = new();
 }
 
 public class MaterialEstimationReviewItem

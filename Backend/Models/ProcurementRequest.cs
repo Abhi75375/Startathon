@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Backend.Models;
 
 public enum ProcurementRequestStatus
@@ -10,7 +12,11 @@ public enum ProcurementRequestStatus
 public class ProcurementRequest
 {
     public Guid Id { get; set; } = Guid.NewGuid();
+
     public Guid MaterialRequestId { get; set; }
+
+    [JsonIgnore]
+    public MaterialRequest MaterialRequest { get; set; } = default!;
 
     public string MaterialCode { get; set; } = default!;
     public decimal Quantity { get; set; }
@@ -21,11 +27,17 @@ public class ProcurementRequest
     public decimal TotalCost { get; set; }
     public DateTime EstimatedDeliveryDate { get; set; }
 
-    public ProcurementRequestStatus Status { get; set; } = ProcurementRequestStatus.PendingApproval;
+    public ProcurementRequestStatus Status { get; set; }
+        = ProcurementRequestStatus.PendingApproval;
 
     public string? DecidedBy { get; set; }
     public DateTime? DecidedAt { get; set; }
     public string? RejectionReason { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
     public string SupplierTelegramChatId { get; set; } = default!;
+
+    [JsonIgnore]
+    public PurchaseOrder? PurchaseOrder { get; set; }
 }

@@ -50,6 +50,8 @@ builder.Services.AddHttpClient<ITelegramService, TelegramService>();
 builder.Services.AddScoped<IPoApprovalGateway, FakePoApprovalGateway>();
 builder.Services.AddScoped<PurchaseOrderService>();
 
+builder.Services.AddScoped<IProcurementWorkflowService, ProcurementWorkflowService>();
+
 var useFakeNotifications = builder.Configuration.GetValue<bool>("NotificationSettings:UseFake");
 
 if (useFakeNotifications)

@@ -72,13 +72,16 @@ public class MaterialEstimationReviewService
             if (decision.Approved)
             {
                 var request = new MaterialRequest
-{
-                MaterialCode = item.MaterialCode,
-                QuantityRequested = decision.FinalQuantity,
-                RequestedBy = reviewedBy,
-                GeneratedByAi = true,
-                ProjectId = review.ProjectId   // ADD THIS LINE — was missing, so deadline filter never activated
-            };
+                {
+                    MaterialEstimationReviewId = review.Id,
+
+                    MaterialCode = item.MaterialCode,
+                    QuantityRequested = decision.FinalQuantity,
+                    RequestedBy = reviewedBy,
+                    GeneratedByAi = true,
+
+                    ProjectId = review.ProjectId
+                };
                 _db.MaterialRequests.Add(request);
                 createdRequests.Add(request);
             }
