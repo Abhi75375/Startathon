@@ -33,7 +33,8 @@ public class DeliveryTrackingService
             ?? throw new InvalidOperationException("Linked material request not found");
 
         await _orderNotificationGateway.SendOrderAsync(new OrderNotificationPayload(
-            po.Id, po.PoNumber, po.SupplierId, po.SupplierName, po.MaterialCode, po.Quantity, po.TotalCost, po.EstimatedDeliveryDate
+            po.Id, po.PoNumber, po.SupplierId, po.SupplierName, po.MaterialCode,
+            po.Quantity, po.TotalCost, po.EstimatedDeliveryDate, po.SupplierTelegramChatId
         ));
 
         po.DeliveryStatus = DeliveryStatus.Ordered;

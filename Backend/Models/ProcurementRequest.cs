@@ -26,6 +26,6 @@ public class ProcurementRequest
     public string? DecidedBy { get; set; }
     public DateTime? DecidedAt { get; set; }
     public string? RejectionReason { get; set; }
-
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public string SupplierTelegramChatId { get; set; } = default!;
 }

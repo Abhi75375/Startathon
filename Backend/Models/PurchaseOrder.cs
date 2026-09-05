@@ -31,4 +31,5 @@ public class PurchaseOrder
     public DateTime? OrderedAt { get; set; }
     public decimal DeliveredQuantity { get; set; } = 0;
     public DateTime? ActualDeliveryDate { get; set; } // set when DeliveryStatus reaches Delivered
+    public string SupplierTelegramChatId { get; set; } = default!;
 }
