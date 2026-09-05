@@ -11,5 +11,7 @@ public class ProcurementDbContext : DbContext
     public DbSet<MaterialEstimationReview> MaterialEstimationReviews => Set<MaterialEstimationReview>();
     public DbSet<MaterialEstimationReviewItem> MaterialEstimationReviewItems => Set<MaterialEstimationReviewItem>();
     public DbSet<ProcurementRequest> ProcurementRequests => Set<ProcurementRequest>();
-    public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>(); // NEW
+    public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>(); //
+
+    public DbSet<SupplierPerformanceRecord> SupplierPerformanceRecords => Set<SupplierPerformanceRecord>();
 }

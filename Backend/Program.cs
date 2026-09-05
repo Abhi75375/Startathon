@@ -42,6 +42,8 @@ builder.Services.AddScoped<IProcurementApprovalGateway, FakeProcurementApprovalG
 builder.Services.AddHttpClient<IWhatsAppService,MetaWhatsAppService>();
 builder.Services.AddScoped<IPoApprovalGateway, FakePoApprovalGateway>();
 builder.Services.AddScoped<PurchaseOrderService>();
+builder.Services.AddScoped<IOrderNotificationGateway, FakeOrderNotificationGateway>();
+builder.Services.AddScoped<DeliveryTrackingService>();
 
 var app = builder.Build();
 
