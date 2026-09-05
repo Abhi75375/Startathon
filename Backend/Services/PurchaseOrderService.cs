@@ -39,7 +39,8 @@ public class PurchaseOrderService
             SupplierName = procurementRequest.SupplierName,
             UnitPrice = procurementRequest.UnitPrice,
             TotalCost = procurementRequest.TotalCost,
-            EstimatedDeliveryDate = procurementRequest.EstimatedDeliveryDate
+            EstimatedDeliveryDate = procurementRequest.EstimatedDeliveryDate,
+            SupplierTelegramChatId = procurementRequest.SupplierTelegramChatId
         };
 
         _db.PurchaseOrders.Add(po);

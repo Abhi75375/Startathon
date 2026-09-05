@@ -35,4 +35,6 @@ public class MaterialRequest
     public string? SelectedSupplierName { get; set; }
     public decimal? SelectedSupplierPrice { get; set; }
     public DateTime? EstimatedDeliveryDate { get; set; }
+
+    public string? SelectedSupplierTelegramChatId { get; set; }
 }

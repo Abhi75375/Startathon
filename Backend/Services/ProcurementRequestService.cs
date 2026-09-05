@@ -36,7 +36,8 @@ public class ProcurementRequestService
             SupplierName = request.SelectedSupplierName!,
             UnitPrice = request.SelectedSupplierPrice.Value,
             TotalCost = request.ShortageQuantity * request.SelectedSupplierPrice.Value,
-            EstimatedDeliveryDate = request.EstimatedDeliveryDate.Value
+            EstimatedDeliveryDate = request.EstimatedDeliveryDate.Value,
+            SupplierTelegramChatId = request.SelectedSupplierTelegramChatId!,
         };
 
         _db.ProcurementRequests.Add(procurementRequest);

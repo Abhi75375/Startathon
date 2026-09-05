@@ -13,5 +13,6 @@ public record OrderNotificationPayload(
     string MaterialCode,
     decimal Quantity,
     decimal TotalCost,
-    DateTime EstimatedDeliveryDate
+    DateTime EstimatedDeliveryDate,
+    string SupplierTelegramChatId
 );

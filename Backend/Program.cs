@@ -30,32 +30,44 @@ else
 }
 
 builder.Services.AddScoped<InventoryCheckService>();
+
 builder.Services.AddScoped<IProjectDataService, FakeProjectDataService>();
 builder.Services.AddScoped<IHistoricalProjectDataService, FakeHistoricalProjectDataService>();
 builder.Services.AddScoped<MaterialEstimationService>();
+
 builder.Services.AddScoped<ISupervisorReviewGateway, FakeSupervisorReviewGateway>();
 builder.Services.AddScoped<MaterialEstimationReviewService>();
+
 builder.Services.AddScoped<ISupplierService, FakeSupplierService>();
 builder.Services.AddScoped<IBudgetService, FakeBudgetService>();
 builder.Services.AddScoped<SupplierSelectionService>();
+
 builder.Services.AddScoped<ProcurementRequestService>();
 builder.Services.AddScoped<IProcurementApprovalGateway, FakeProcurementApprovalGateway>();
-builder.Services.AddHttpClient<IWhatsAppService,MetaWhatsAppService>();
-<<<<<<< HEAD
-builder.Services.AddHttpClient<ITelegramService, TelegramService>();
 
-=======
 builder.Services.AddScoped<IPoApprovalGateway, FakePoApprovalGateway>();
 builder.Services.AddScoped<PurchaseOrderService>();
-builder.Services.AddScoped<IOrderNotificationGateway, FakeOrderNotificationGateway>();
+
+var useFakeNotifications = builder.Configuration.GetValue<bool>("NotificationSettings:UseFake");
+
+if (useFakeNotifications)
+{
+    builder.Services.AddScoped<IOrderNotificationGateway, FakeOrderNotificationGateway>();
+}
+else
+{
+    builder.Services.AddScoped<IOrderNotificationGateway, TelegramOrderNotificationGateway>();
+}
 builder.Services.AddScoped<DeliveryTrackingService>();
->>>>>>> e808f1e121edcf6b4a05ee356bd8cd9c7a60996e
+
+builder.Services.AddHttpClient<IWhatsAppService, MetaWhatsAppService>();
+builder.Services.AddHttpClient<ITelegramService, TelegramService>();
+
 
 var app = builder.Build();
 
 app.MapOpenApi();
 app.MapScalarApiReference();
-
 //app.UseHttpsRedirection();
 app.MapControllers();
 app.Run();

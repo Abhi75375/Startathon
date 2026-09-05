@@ -93,6 +93,7 @@ public class SupplierSelectionService
         request.SelectedSupplierName = winner.SupplierName;
         request.SelectedSupplierPrice = winner.PricePerUnit;
         request.EstimatedDeliveryDate = winner.DeliveryDate;
+        request.SelectedSupplierTelegramChatId = winner.TelegramChatId;
 
         await _db.SaveChangesAsync();
 

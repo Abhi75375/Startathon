@@ -12,5 +12,6 @@ public record SupplierOffer(
     decimal PricePerUnit,
     DateTime DeliveryDate,
     decimal ReliabilityScore, // 0.0 to 1.0
-    decimal Rating            // 0 to 5
+    decimal Rating,            // 0 to 5
+    string TelegramChatId
 );
