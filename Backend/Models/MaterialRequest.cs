@@ -14,6 +14,7 @@ public enum MaterialRequestStatus
     PoPendingApproval,
     PoApproved,
     PoRejected,
+    AwaitingVendorConfirmation,
     Ordered,
     Cancelled
 }
@@ -37,4 +38,5 @@ public class MaterialRequest
     public DateTime? EstimatedDeliveryDate { get; set; }
 
     public string? SelectedSupplierTelegramChatId { get; set; }
+    public string? ExcludedSupplierIds { get; set;}
 }

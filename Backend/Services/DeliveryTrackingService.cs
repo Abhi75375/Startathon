@@ -9,18 +9,21 @@ public class DeliveryTrackingService
     private readonly ProcurementDbContext _db;
     private readonly IOrderNotificationGateway _orderNotificationGateway;
     private readonly IInventoryService _inventoryService;
+    private readonly SupplierSelectionService _supplierSelectionService; // NEW
 
     public DeliveryTrackingService(
         ProcurementDbContext db,
         IOrderNotificationGateway orderNotificationGateway,
-        IInventoryService inventoryService)
+        IInventoryService inventoryService,
+        SupplierSelectionService supplierSelectionService) // NEW
     {
         _db = db;
         _orderNotificationGateway = orderNotificationGateway;
         _inventoryService = inventoryService;
+        _supplierSelectionService = supplierSelectionService;
     }
 
-    // Step 9: Send Order
+    // Step 9: Send Order - now sends a CONFIRMATION REQUEST, not a final "it's ordered"
     public async Task<PurchaseOrder> SendOrderAsync(Guid purchaseOrderId)
     {
         var po = await _db.PurchaseOrders.FindAsync(purchaseOrderId)
@@ -33,19 +36,97 @@ public class DeliveryTrackingService
             ?? throw new InvalidOperationException("Linked material request not found");
 
         await _orderNotificationGateway.SendOrderAsync(new OrderNotificationPayload(
-            po.Id, po.PoNumber, po.SupplierId, po.SupplierName, po.MaterialCode,
-            po.Quantity, po.TotalCost, po.EstimatedDeliveryDate, po.SupplierTelegramChatId
-        ));
+    po.Id,
+    po.PoNumber,
+    po.SupplierId,
+    po.SupplierName,
+    po.MaterialCode,
+    po.Quantity,
+    po.TotalCost,
+    po.EstimatedDeliveryDate,
+    po.SupplierTelegramChatId
+));
 
-        po.DeliveryStatus = DeliveryStatus.Ordered;
-        po.OrderedAt = DateTime.UtcNow;
-        materialRequest.Status = MaterialRequestStatus.Ordered;
+        po.VendorConfirmationStatus = VendorConfirmationStatus.Pending;
+        po.SentForConfirmationAt = DateTime.UtcNow;
+        materialRequest.Status = MaterialRequestStatus.AwaitingVendorConfirmation;
 
         await _db.SaveChangesAsync();
         return po;
     }
 
-    // Step 10: Delivery Tracking - status progression, with optional quantity for partial/full deliveries
+    // NEW - THE CONTRACT METHOD: called once the Telegram webhook figures out what the vendor said
+    public async Task<PurchaseOrder> RecordVendorResponseAsync(Guid purchaseOrderId, bool sufficientStock, decimal? availableQuantity, string? rawMessage = null)
+    {
+        var po = await _db.PurchaseOrders.FindAsync(purchaseOrderId)
+            ?? throw new InvalidOperationException("Purchase order not found");
+
+        po.VendorRespondedAt = DateTime.UtcNow;
+        po.VendorConfirmedQuantity = availableQuantity;
+
+        // Treat "yes but not enough" the same as "no" - the vendor can't fulfill this order as-is
+        bool actuallySufficient = sufficientStock && (availableQuantity is null || availableQuantity >= po.Quantity);
+
+        if (actuallySufficient)
+        {
+            po.VendorConfirmationStatus = VendorConfirmationStatus.Confirmed;
+            po.DeliveryStatus = DeliveryStatus.Ordered;
+            po.OrderedAt = DateTime.UtcNow;
+
+            var materialRequest = await _db.MaterialRequests.FindAsync(po.MaterialRequestId)
+                ?? throw new InvalidOperationException("Linked material request not found");
+            materialRequest.Status = MaterialRequestStatus.Ordered;
+
+            await _db.SaveChangesAsync();
+            return po;
+        }
+
+        po.VendorConfirmationStatus = VendorConfirmationStatus.Declined;
+        await _db.SaveChangesAsync();
+
+        await EscalateToNextVendorAsync(po);
+        return po;
+    }
+
+    private async Task EscalateToNextVendorAsync(PurchaseOrder failedPo)
+    {
+        var materialRequest = await _db.MaterialRequests.FindAsync(failedPo.MaterialRequestId)
+            ?? throw new InvalidOperationException("Linked material request not found");
+
+        var excludedIds = (materialRequest.ExcludedSupplierIds ?? "")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToHashSet();
+        excludedIds.Add(failedPo.SupplierId);
+        materialRequest.ExcludedSupplierIds = string.Join(",", excludedIds);
+        await _db.SaveChangesAsync();
+
+        var (nextOffer, reason) = await _supplierSelectionService.FindNextBestOfferAsync(materialRequest.Id);
+
+        if (nextOffer is null)
+        {
+            materialRequest.Status = MaterialRequestStatus.NoSupplierAvailable;
+            await _db.SaveChangesAsync();
+            return;
+        }
+
+        // Update the SAME PurchaseOrder record to point at the new vendor - no new approval cycle,
+        // since the manager already approved procuring this material; only the vendor changed.
+        failedPo.SupplierId = nextOffer.SupplierId;
+        failedPo.SupplierName = nextOffer.SupplierName;
+        failedPo.SupplierTelegramChatId = nextOffer.TelegramChatId;
+        failedPo.UnitPrice = nextOffer.PricePerUnit;
+        failedPo.TotalCost = failedPo.Quantity * nextOffer.PricePerUnit;
+        failedPo.EstimatedDeliveryDate = nextOffer.DeliveryDate;
+        failedPo.VendorConfirmationStatus = VendorConfirmationStatus.NotSent;
+        failedPo.VendorRespondedAt = null;
+        failedPo.VendorConfirmedQuantity = null;
+
+        await _db.SaveChangesAsync();
+
+        await SendOrderAsync(failedPo.Id); // automatically resend confirmation request to the new vendor
+    }
+
+    // Step 10: unchanged from before
     public async Task<PurchaseOrder> UpdateDeliveryStatusAsync(Guid purchaseOrderId, DeliveryStatus newStatus, decimal? deliveredQuantityThisEvent)
     {
         var po = await _db.PurchaseOrders.FindAsync(purchaseOrderId)
@@ -53,7 +134,6 @@ public class DeliveryTrackingService
 
         po.DeliveryStatus = newStatus;
 
-        // Step 11: Inventory Update - every delivery event (partial or full) increases inventory immediately
         if ((newStatus == DeliveryStatus.PartiallyDelivered || newStatus == DeliveryStatus.Delivered)
             && deliveredQuantityThisEvent is > 0)
         {
@@ -71,14 +151,13 @@ public class DeliveryTrackingService
         return po;
     }
 
-    // Step 12: Supplier Performance - runs automatically once fully Delivered
     private async Task RecordSupplierPerformanceAsync(PurchaseOrder po)
     {
         var actualDate = po.ActualDeliveryDate ?? DateTime.UtcNow;
         bool onTime = actualDate <= po.EstimatedDeliveryDate;
         int daysLate = onTime ? 0 : (int)(actualDate - po.EstimatedDeliveryDate).TotalDays;
 
-        var record = new SupplierPerformanceRecord
+        _db.SupplierPerformanceRecords.Add(new SupplierPerformanceRecord
         {
             PurchaseOrderId = po.Id,
             SupplierId = po.SupplierId,
@@ -88,11 +167,6 @@ public class DeliveryTrackingService
             ActualDeliveryDate = actualDate,
             OnTime = onTime,
             DaysLate = daysLate
-        };
-
-        _db.SupplierPerformanceRecords.Add(record);
-        // Note: this is recorded but not yet fed back into ISupplierService's ReliabilityScore -
-        // that loop-back (using real historical performance to influence future Step 4 scoring)
-        // is a natural next enhancement once there's enough real data, not required right now.
+        });
     }
 }
