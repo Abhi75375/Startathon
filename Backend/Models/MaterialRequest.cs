@@ -6,8 +6,11 @@ public enum MaterialRequestStatus
     InventoryChecked,
     Fulfilled,
     ShortageIdentified,
-    SupplierSelected,      // NEW
-    NoSupplierAvailable,   // NEW - every supplier failed deadline/budget filters
+    SupplierSelected,
+    NoSupplierAvailable,
+    ProcurementRequested,  
+    ProcurementApproved,  
+    ProcurementRejected,
     Cancelled
 }
 
@@ -21,9 +24,8 @@ public class MaterialRequest
     public MaterialRequestStatus Status { get; set; } = MaterialRequestStatus.Created;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    // NEW fields below
-    public Guid? ProjectId { get; set; }                    // null for manual requests without a linked project
-    public decimal ShortageQuantity { get; set; }            // persisted from Step 2/3, not just calculated in-memory
+    public Guid? ProjectId { get; set; }
+    public decimal ShortageQuantity { get; set; }
 
     public string? SelectedSupplierId { get; set; }
     public string? SelectedSupplierName { get; set; }
