@@ -41,8 +41,15 @@ builder.Services.AddScoped<SupplierSelectionService>();
 builder.Services.AddScoped<ProcurementRequestService>();
 builder.Services.AddScoped<IProcurementApprovalGateway, FakeProcurementApprovalGateway>();
 builder.Services.AddHttpClient<IWhatsAppService,MetaWhatsAppService>();
+<<<<<<< HEAD
 builder.Services.AddHttpClient<ITelegramService, TelegramService>();
 
+=======
+builder.Services.AddScoped<IPoApprovalGateway, FakePoApprovalGateway>();
+builder.Services.AddScoped<PurchaseOrderService>();
+builder.Services.AddScoped<IOrderNotificationGateway, FakeOrderNotificationGateway>();
+builder.Services.AddScoped<DeliveryTrackingService>();
+>>>>>>> e808f1e121edcf6b4a05ee356bd8cd9c7a60996e
 
 var app = builder.Build();
 

@@ -3,6 +3,7 @@ using System;
 using Backend.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Backend.Migrations
 {
     [DbContext(typeof(ProcurementDbContext))]
-    partial class ProcurementDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260905140216_AddPurchaseOrder")]
+    partial class AddPurchaseOrder
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -185,9 +188,6 @@ namespace Backend.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<DateTime?>("ActualDeliveryDate")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -196,12 +196,6 @@ namespace Backend.Migrations
 
                     b.Property<string>("DecidedBy")
                         .HasColumnType("text");
-
-                    b.Property<decimal>("DeliveredQuantity")
-                        .HasColumnType("numeric");
-
-                    b.Property<int>("DeliveryStatus")
-                        .HasColumnType("integer");
 
                     b.Property<DateTime>("EstimatedDeliveryDate")
                         .HasColumnType("timestamp with time zone");
@@ -212,9 +206,6 @@ namespace Backend.Migrations
 
                     b.Property<Guid>("MaterialRequestId")
                         .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("OrderedAt")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("PoNumber")
                         .IsRequired()
@@ -249,47 +240,6 @@ namespace Backend.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("PurchaseOrders");
-                });
-
-            modelBuilder.Entity("Backend.Models.SupplierPerformanceRecord", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("ActualDeliveryDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("DaysLate")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("EstimatedDeliveryDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("MaterialCode")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<bool>("OnTime")
-                        .HasColumnType("boolean");
-
-                    b.Property<Guid>("PurchaseOrderId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("RecordedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("SupplierId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("SupplierName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("SupplierPerformanceRecords");
                 });
 
             modelBuilder.Entity("Backend.Models.MaterialEstimationReviewItem", b =>

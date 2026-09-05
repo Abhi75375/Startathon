@@ -8,9 +8,13 @@ public enum MaterialRequestStatus
     ShortageIdentified,
     SupplierSelected,
     NoSupplierAvailable,
-    ProcurementRequested,  
-    ProcurementApproved,  
+    ProcurementRequested,
+    ProcurementApproved,
     ProcurementRejected,
+    PoPendingApproval,
+    PoApproved,
+    PoRejected,
+    Ordered,
     Cancelled
 }
 
