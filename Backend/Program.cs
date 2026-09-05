@@ -36,6 +36,7 @@ builder.Services.AddScoped<MaterialEstimationReviewService>();
 builder.Services.AddScoped<ISupplierService, FakeSupplierService>();
 builder.Services.AddScoped<IBudgetService, FakeBudgetService>();
 builder.Services.AddScoped<SupplierSelectionService>();
+builder.Services.AddScoped<ProcurementRequestService>();
 
 var app = builder.Build();
 
