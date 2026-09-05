@@ -3,6 +3,7 @@ using Backend.Contracts;
 using Backend.Services;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
+using Backend.Services.Telegram;
 using Backend.Services.WhatsApp;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -40,6 +41,7 @@ builder.Services.AddScoped<SupplierSelectionService>();
 builder.Services.AddScoped<ProcurementRequestService>();
 builder.Services.AddScoped<IProcurementApprovalGateway, FakeProcurementApprovalGateway>();
 builder.Services.AddHttpClient<IWhatsAppService,MetaWhatsAppService>();
+builder.Services.AddHttpClient<ITelegramService, TelegramService>();
 
 
 var app = builder.Build();
@@ -47,6 +49,6 @@ var app = builder.Build();
 app.MapOpenApi();
 app.MapScalarApiReference();
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 app.MapControllers();
 app.Run();
