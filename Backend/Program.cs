@@ -38,7 +38,7 @@ builder.Services.AddScoped<MaterialEstimationService>();
 builder.Services.AddScoped<ISupervisorReviewGateway, FakeSupervisorReviewGateway>();
 builder.Services.AddScoped<MaterialEstimationReviewService>();
 
-builder.Services.AddScoped<ISupplierService, FakeSupplierService>();
+builder.Services.AddScoped<ISupplierService, VendorService>();
 builder.Services.AddScoped<IBudgetService, FakeBudgetService>();
 builder.Services.AddScoped<SupplierSelectionService>();
 
@@ -61,9 +61,6 @@ else
     builder.Services.AddScoped<IOrderNotificationGateway, TelegramOrderNotificationGateway>();
 }
 builder.Services.AddScoped<DeliveryTrackingService>();
-
-builder.Services.AddHttpClient<IWhatsAppService, MetaWhatsAppService>();
-builder.Services.AddHttpClient<ITelegramService, TelegramService>();
 
 
 var app = builder.Build();

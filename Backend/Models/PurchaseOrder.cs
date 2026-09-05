@@ -32,4 +32,17 @@ public class PurchaseOrder
     public decimal DeliveredQuantity { get; set; } = 0;
     public DateTime? ActualDeliveryDate { get; set; } // set when DeliveryStatus reaches Delivered
     public string SupplierTelegramChatId { get; set; } = default!;
+    public VendorConfirmationStatus VendorConfirmationStatus { get; set; } = VendorConfirmationStatus.NotSent; // NEW
+public DateTime? SentForConfirmationAt { get; set; } // NEW
+public DateTime? VendorRespondedAt { get; set; } // NEW
+public decimal? VendorConfirmedQuantity { get; set; } // NEW
+}
+
+
+public enum VendorConfirmationStatus  // NEW
+{
+    NotSent,
+    Pending,
+    Confirmed,
+    Declined
 }
