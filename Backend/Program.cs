@@ -33,6 +33,9 @@ builder.Services.AddScoped<IHistoricalProjectDataService, FakeHistoricalProjectD
 builder.Services.AddScoped<MaterialEstimationService>();
 builder.Services.AddScoped<ISupervisorReviewGateway, FakeSupervisorReviewGateway>();
 builder.Services.AddScoped<MaterialEstimationReviewService>();
+builder.Services.AddScoped<ISupplierService, FakeSupplierService>();
+builder.Services.AddScoped<IBudgetService, FakeBudgetService>();
+builder.Services.AddScoped<SupplierSelectionService>();
 
 var app = builder.Build();
 

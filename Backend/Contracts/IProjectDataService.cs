@@ -8,5 +8,6 @@ public interface IProjectDataService
 public record ProjectData(
     Guid ProjectId,
     string BuildType,   // e.g. "Residential", "Warehouse"
-    decimal Area        // in square meters
+    decimal Area,        // in square meters
+    DateTime StartDate
 );

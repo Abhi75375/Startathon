@@ -23,8 +23,6 @@ public class InventoryCheckService
 
         var stock = await _inventoryService.GetStockAsync(request.MaterialCode);
 
-        // Available = current stock, minus what's already reserved for other requests,
-        // plus what's already incoming from a prior PO
         decimal available = stock.CurrentStock - stock.ReservedStock + stock.IncomingStock;
 
         bool enough = available >= request.QuantityRequested;
@@ -33,6 +31,8 @@ public class InventoryCheckService
         request.Status = enough
             ? MaterialRequestStatus.Fulfilled
             : MaterialRequestStatus.ShortageIdentified;
+
+        request.ShortageQuantity = shortage; // NEW - persist it, don't just return it
 
         await _db.SaveChangesAsync();
 
