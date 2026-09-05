@@ -11,15 +11,17 @@ public class ProcurementWorkflowService : IProcurementWorkflowService
     private readonly SupplierSelectionService _supplierSelectionService;
     private readonly ProcurementRequestService _procurementRequestService;
     private readonly PurchaseOrderService _purchaseOrderService;
+    private readonly DeliveryTrackingService _deliveryTrackingService;
     private readonly ILogger<ProcurementWorkflowService> _logger;
 
     public ProcurementWorkflowService(
-        ProcurementDbContext db,
-        InventoryCheckService inventoryCheckService,
-        SupplierSelectionService supplierSelectionService,
-        ProcurementRequestService procurementRequestService,
-        PurchaseOrderService purchaseOrderService,
-        ILogger<ProcurementWorkflowService> logger)
+    ProcurementDbContext db,
+    InventoryCheckService inventoryCheckService,
+    SupplierSelectionService supplierSelectionService,
+    ProcurementRequestService procurementRequestService,
+    PurchaseOrderService purchaseOrderService,
+    DeliveryTrackingService deliveryTrackingService,
+    ILogger<ProcurementWorkflowService> logger)
     {
         _db = db;
         _inventoryCheckService = inventoryCheckService;
@@ -27,6 +29,7 @@ public class ProcurementWorkflowService : IProcurementWorkflowService
         _procurementRequestService = procurementRequestService;
         _purchaseOrderService = purchaseOrderService;
         _logger = logger;
+        _deliveryTrackingService = deliveryTrackingService;
     }
 
     // ============================================================
@@ -224,18 +227,14 @@ public class ProcurementWorkflowService : IProcurementWorkflowService
     // CONTINUE AFTER PO APPROVAL
     // ============================================================
 
-    public async Task ContinueAfterPurchaseOrderApprovalAsync(
-        Guid purchaseOrderId)
+    public async Task ContinueAfterPurchaseOrderApprovalAsync(Guid purchaseOrderId)
     {
         var purchaseOrder =
             await _db.PurchaseOrders
-                .FirstOrDefaultAsync(
-                    x => x.Id == purchaseOrderId)
-            ?? throw new InvalidOperationException(
-                "Purchase order not found.");
+                .FirstOrDefaultAsync(x => x.Id == purchaseOrderId)
+            ?? throw new InvalidOperationException("Purchase order not found.");
 
-        if (purchaseOrder.Status !=
-            PurchaseOrderStatus.Approved)
+        if (purchaseOrder.Status != PurchaseOrderStatus.Approved)
         {
             _logger.LogWarning(
                 "Purchase order {PurchaseOrderId} is not approved. " +
@@ -246,20 +245,16 @@ public class ProcurementWorkflowService : IProcurementWorkflowService
             return;
         }
 
-        // --------------------------------------------------------
-        // STEP 9 WILL BE CONNECTED HERE.
-        //
-        // This is where the approved PO will be sent to the vendor
-        // through Telegram.
-        // --------------------------------------------------------
-
         _logger.LogInformation(
             "Purchase Order {PurchaseOrderId} approved. " +
-            "Ready for vendor notification.",
+            "Sending order to vendor.",
             purchaseOrderId);
 
-        // DO NOT add Telegram code yet.
-        // We will connect your existing
-        // TelegramOrderNotificationGateway here next.
+        await _deliveryTrackingService.SendOrderAsync(purchaseOrderId);
+
+        _logger.LogInformation(
+            "Purchase Order {PurchaseOrderId} sent to vendor. " +
+            "Workflow is now waiting for vendor confirmation.",
+            purchaseOrderId);
     }
 }
