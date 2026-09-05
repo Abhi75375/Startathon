@@ -8,7 +8,9 @@ public enum MaterialRequestStatus
     ShortageIdentified,
     SupplierSelected,
     NoSupplierAvailable,
-    ProcurementRequested,  // NEW
+    ProcurementRequested,  
+    ProcurementApproved,  
+    ProcurementRejected,
     Cancelled
 }
 
