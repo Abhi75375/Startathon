@@ -1,0 +1,15 @@
+E:\Anjan\Coding\startathon\Startathon\Backend\bin\Debug\net10.0\Backend.exe
+E:\Anjan\Coding\startathon\Startathon\Backend\bin\Debug\net10.0\Backend.deps.json
+E:\Anjan\Coding\startathon\Startathon\Backend\bin\Debug\net10.0\Backend.runtimeconfig.json
+E:\Anjan\Coding\startathon\Startathon\Backend\bin\Debug\net10.0\Backend.dll
+E:\Anjan\Coding\startathon\Startathon\Backend\bin\Debug\net10.0\Backend.pdb
+E:\Anjan\Coding\startathon\Startathon\Backend\obj\Debug\net10.0\Backend.GeneratedMSBuildEditorConfig.editorconfig
+E:\Anjan\Coding\startathon\Startathon\Backend\obj\Debug\net10.0\Backend.AssemblyInfoInputs.cache
+E:\Anjan\Coding\startathon\Startathon\Backend\obj\Debug\net10.0\Backend.AssemblyInfo.cs
+E:\Anjan\Coding\startathon\Startathon\Backend\obj\Debug\net10.0\Backend.csproj.CoreCompileInputs.cache
+E:\Anjan\Coding\startathon\Startathon\Backend\obj\Debug\net10.0\Backend.sourcelink.json
+E:\Anjan\Coding\startathon\Startathon\Backend\obj\Debug\net10.0\Backend.dll
+E:\Anjan\Coding\startathon\Startathon\Backend\obj\Debug\net10.0\refint\Backend.dll
+E:\Anjan\Coding\startathon\Startathon\Backend\obj\Debug\net10.0\Backend.pdb
+E:\Anjan\Coding\startathon\Startathon\Backend\obj\Debug\net10.0\Backend.genruntimeconfig.cache
+E:\Anjan\Coding\startathon\Startathon\Backend\obj\Debug\net10.0\ref\Backend.dll
