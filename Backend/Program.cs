@@ -40,7 +40,8 @@ builder.Services.AddScoped<SupplierSelectionService>();
 builder.Services.AddScoped<ProcurementRequestService>();
 builder.Services.AddScoped<IProcurementApprovalGateway, FakeProcurementApprovalGateway>();
 builder.Services.AddHttpClient<IWhatsAppService,MetaWhatsAppService>();
-
+builder.Services.AddScoped<IPoApprovalGateway, FakePoApprovalGateway>();
+builder.Services.AddScoped<PurchaseOrderService>();
 
 var app = builder.Build();
 

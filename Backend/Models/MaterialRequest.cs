@@ -11,6 +11,9 @@ public enum MaterialRequestStatus
     ProcurementRequested,  
     ProcurementApproved,  
     ProcurementRejected,
+     PoPendingApproval,   
+    PoApproved,          
+    PoRejected,
     Cancelled
 }
 
