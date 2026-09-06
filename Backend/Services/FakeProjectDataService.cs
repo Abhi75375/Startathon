@@ -2,7 +2,7 @@ using Backend.Contracts;
 
 namespace Backend.Services;
 
-public class FakeProjectDataService : IProjectDataService
+public class FakeProjectDataService : object
 {
     public Task<ProjectData> GetProjectDataAsync(Guid projectId)
     {

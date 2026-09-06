@@ -1,3 +1,4 @@
+using Backend.Contracts;
 using Backend.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,10 +15,11 @@ public class MaterialEstimationController : ControllerBase
         _service = service;
     }
 
-    [HttpGet("{projectId}")]
-    public async Task<IActionResult> Estimate(Guid projectId)
+    [HttpPost]
+    public async Task<IActionResult> Estimate(ProjectData project)
     {
-        var estimates = await _service.EstimateAsync(projectId);
+        var estimates = await _service.EstimateAsync(project);
+
         return Ok(estimates);
     }
 }

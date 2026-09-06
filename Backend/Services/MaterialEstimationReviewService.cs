@@ -22,17 +22,18 @@ public class MaterialEstimationReviewService
     }
 
     // Step A: estimate materials, save as a pending review, send to middleware
-    public async Task<MaterialEstimationReview> CreateAndSubmitReviewAsync(Guid projectId)
+    public async Task<MaterialEstimationReview> CreateAndSubmitReviewAsync(ProjectData project)
     {
-        var estimates = await _estimationService.EstimateAsync(projectId);
+        var estimates = await _estimationService.EstimateAsync(project);
 
         var review = new MaterialEstimationReview
         {
-            ProjectId = projectId,
+            ProjectId = project.ProjectId,
             Items = estimates.Select(e => new MaterialEstimationReviewItem
             {
                 MaterialCode = e.MaterialCode,
-                AiEstimatedQuantity = e.EstimatedQuantity
+                AiEstimatedQuantity = e.EstimatedQuantity,
+                FinalQuantity = e.EstimatedQuantity
             }).ToList()
         };
 
@@ -40,10 +41,15 @@ public class MaterialEstimationReviewService
         await _db.SaveChangesAsync();
 
         var payload = review.Items
-            .Select(i => new ReviewItemPayload(i.MaterialCode, i.AiEstimatedQuantity))
+            .Select(i => new ReviewItemPayload(
+                i.MaterialCode,
+                i.AiEstimatedQuantity))
             .ToList();
 
-        await _reviewGateway.SubmitForReviewAsync(review.Id, projectId, payload);
+        await _reviewGateway.SubmitForReviewAsync(
+            review.Id,
+            project.ProjectId,
+            payload);
 
         return review;
     }
@@ -63,8 +69,11 @@ public class MaterialEstimationReviewService
 
         foreach (var decision in decisions)
         {
-            var item = review.Items.FirstOrDefault(i => i.MaterialCode == decision.MaterialCode);
-            if (item is null) continue; // supervisor referenced a material we didn't estimate — ignore safely
+            var item = review.Items
+                .FirstOrDefault(i => i.MaterialCode == decision.MaterialCode);
+
+            if (item is null)
+                continue;
 
             item.FinalQuantity = decision.FinalQuantity;
             item.Approved = decision.Approved;
@@ -74,20 +83,22 @@ public class MaterialEstimationReviewService
                 var request = new MaterialRequest
                 {
                     MaterialEstimationReviewId = review.Id,
-
                     MaterialCode = item.MaterialCode,
                     QuantityRequested = decision.FinalQuantity,
                     RequestedBy = reviewedBy,
                     GeneratedByAi = true,
-
                     ProjectId = review.ProjectId
                 };
+
                 _db.MaterialRequests.Add(request);
                 createdRequests.Add(request);
             }
         }
 
-        review.Status = decisions.Any(d => d.Approved) ? ReviewStatus.Approved : ReviewStatus.Rejected;
+        review.Status = decisions.Any(d => d.Approved)
+            ? ReviewStatus.Approved
+            : ReviewStatus.Rejected;
+
         review.ReviewedBy = reviewedBy;
         review.ReviewedAt = DateTime.UtcNow;
 
@@ -97,4 +108,7 @@ public class MaterialEstimationReviewService
     }
 }
 
-public record SupervisorDecisionItem(string MaterialCode, decimal FinalQuantity, bool Approved);
+public record SupervisorDecisionItem(
+    string MaterialCode,
+    decimal FinalQuantity,
+    bool Approved);
