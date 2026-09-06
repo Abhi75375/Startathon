@@ -123,6 +123,14 @@ builder.Services.AddScoped<
     FakeProcurementApprovalGateway>();
 
 
+builder.Services.AddHttpClient<IVendorApprovalGateway, ExternalVendorApprovalGateway>();
+
+builder.Services.AddScoped<VendorApprovalService>();
+builder.Services.AddScoped<IVendorApprovalGateway, ExternalVendorApprovalGateway>();
+builder.Services.AddHttpClient<IVendorApprovalGateway, ExternalVendorApprovalGateway>();
+builder.Services.AddScoped<VendorApprovalService>();
+
+
 // ======================================================
 // COMMUNICATION
 // ======================================================
