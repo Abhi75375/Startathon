@@ -1,10 +1,10 @@
-﻿using Backend.Data;
-using Backend.Contracts;
+﻿using Backend.Contracts;
+using Backend.Data;
 using Backend.Services;
-using Microsoft.EntityFrameworkCore;
-using Scalar.AspNetCore;
 using Backend.Services.Telegram;
 using Backend.Services.WhatsApp;
+using Microsoft.EntityFrameworkCore;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,9 +12,11 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
 
-builder.Services.AddDbContext<ProcurementDbContext>(options =>
-    options.UseNpgsql(
-        builder.Configuration.GetConnectionString("Default")));
+builder.Services.AddDbContext<ProcurementDbContext>(
+    options =>
+        options.UseNpgsql(
+            builder.Configuration.GetConnectionString(
+                "Default")));
 
 
 // ======================================================
@@ -66,7 +68,7 @@ builder.Services.AddScoped<
 
 
 // ======================================================
-// FRONTEND MATERIAL ESTIMATION DELIVERY
+// MATERIAL ESTIMATION EXTERNAL DELIVERY
 // ======================================================
 
 builder.Services.AddHttpClient<
@@ -112,6 +114,18 @@ builder.Services.AddScoped<
 
 
 // ======================================================
+// VENDOR APPROVAL
+// ======================================================
+
+builder.Services.AddHttpClient<
+    IVendorApprovalGateway,
+    ExternalVendorApprovalGateway>();
+
+builder.Services.AddScoped<
+    VendorApprovalService>();
+
+
+// ======================================================
 // PROCUREMENT REQUEST
 // ======================================================
 
@@ -121,14 +135,6 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     IProcurementApprovalGateway,
     FakeProcurementApprovalGateway>();
-
-
-builder.Services.AddHttpClient<IVendorApprovalGateway, ExternalVendorApprovalGateway>();
-
-builder.Services.AddScoped<VendorApprovalService>();
-builder.Services.AddScoped<IVendorApprovalGateway, ExternalVendorApprovalGateway>();
-builder.Services.AddHttpClient<IVendorApprovalGateway, ExternalVendorApprovalGateway>();
-builder.Services.AddScoped<VendorApprovalService>();
 
 
 // ======================================================
@@ -154,6 +160,11 @@ builder.Services.AddScoped<
 
 builder.Services.AddScoped<
     PurchaseOrderService>();
+
+
+// ======================================================
+// MAIN WORKFLOW
+// ======================================================
 
 builder.Services.AddScoped<
     IProcurementWorkflowService,
@@ -190,15 +201,13 @@ builder.Services.AddScoped<
 
 
 // ======================================================
-// BUILD APP
+// BUILD
 // ======================================================
 
 var app = builder.Build();
 
 app.MapOpenApi();
 app.MapScalarApiReference();
-
-// app.UseHttpsRedirection();
 
 app.MapControllers();
 

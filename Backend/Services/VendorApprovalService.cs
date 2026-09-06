@@ -29,23 +29,38 @@ public class VendorApprovalService
             ?? throw new InvalidOperationException(
                 "Material request not found.");
 
-        var offers = await _supplierService
-            .GetSuppliersAsync(request.MaterialCode);
+        var offers =
+            await _supplierService.GetSuppliersAsync(
+                request.MaterialCode);
 
-        var excludedIds = (request.ExcludedSupplierIds ?? "")
-            .Split(
-                ',',
-                StringSplitOptions.RemoveEmptyEntries |
-                StringSplitOptions.TrimEntries)
-            .ToHashSet();
+        var excludedIds =
+            (request.ExcludedSupplierIds ?? "")
+                .Split(
+                    ',',
+                    StringSplitOptions.RemoveEmptyEntries |
+                    StringSplitOptions.TrimEntries)
+                .ToHashSet();
 
         var eligibleOffers = offers
             .Where(x => !excludedIds.Contains(x.SupplierId))
+            .OrderBy(x => x.PricePerUnit)
             .ToList();
 
-        var quantity = request.ShortageQuantity > 0
-            ? request.ShortageQuantity
-            : request.QuantityRequested;
+        if (eligibleOffers.Count == 0)
+        {
+            request.Status =
+                MaterialRequestStatus.NoSupplierAvailable;
+
+            await _db.SaveChangesAsync();
+
+            throw new InvalidOperationException(
+                "No eligible vendors found.");
+        }
+
+        var quantity =
+            request.ShortageQuantity > 0
+                ? request.ShortageQuantity
+                : request.QuantityRequested;
 
         var items = eligibleOffers
             .Select(x => new VendorApprovalItem(
@@ -58,16 +73,10 @@ public class VendorApprovalService
                 EstimatedDeliveryDate: x.DeliveryDate))
             .ToList();
 
-        if (items.Count == 0)
-        {
-            throw new InvalidOperationException(
-                "No eligible vendors found.");
-        }
-
         var payload = new VendorApprovalPayload(
-            request.Id,
-            request.ProjectId,
-            items);
+            MaterialRequestId: request.Id,
+            ProjectId: request.ProjectId,
+            Items: items);
 
         await _gateway.SubmitForApprovalAsync(payload);
 
@@ -79,7 +88,8 @@ public class VendorApprovalService
         string approvedBy)
     {
         var request = await _db.MaterialRequests
-            .FirstOrDefaultAsync(x => x.Id == decision.MaterialRequestId)
+            .FirstOrDefaultAsync(
+                x => x.Id == decision.MaterialRequestId)
             ?? throw new InvalidOperationException(
                 "Material request not found.");
 
@@ -90,23 +100,75 @@ public class VendorApprovalService
                 "ProjectId does not match the material request.");
         }
 
-        if (decision.Items is null || decision.Items.Count == 0)
+        if (decision.Items is null ||
+            decision.Items.Count == 0)
         {
             throw new InvalidOperationException(
                 "No approved vendor data supplied.");
         }
 
-        foreach (var item in decision.Items)
-        {
-            request.SelectedSupplierId = item.SupplierId;
-            request.SelectedSupplierName = item.SupplierName;
-            request.SelectedSupplierPrice = item.UnitPrice;
-            request.EstimatedDeliveryDate = item.EstimatedDeliveryDate;
+        var selectedVendor = decision.Items.First();
 
-            break;
+        var availableVendors =
+            await _supplierService.GetSuppliersAsync(
+                request.MaterialCode);
+
+        var selectedOffer =
+            availableVendors.FirstOrDefault(
+                x => x.SupplierId == selectedVendor.SupplierId);
+
+        if (selectedOffer is null)
+        {
+            throw new InvalidOperationException(
+                "Selected supplier does not exist for this material.");
         }
 
-        request.Status = MaterialRequestStatus.SupplierSelected;
+        var excludedIds =
+            (request.ExcludedSupplierIds ?? "")
+                .Split(
+                    ',',
+                    StringSplitOptions.RemoveEmptyEntries |
+                    StringSplitOptions.TrimEntries)
+                .ToHashSet();
+
+        if (excludedIds.Contains(selectedOffer.SupplierId))
+        {
+            throw new InvalidOperationException(
+                "Selected supplier is excluded for this material request.");
+        }
+
+        var quantity =
+            request.ShortageQuantity > 0
+                ? request.ShortageQuantity
+                : request.QuantityRequested;
+
+        var approvedQuantity =
+            selectedVendor.Quantity > 0
+                ? selectedVendor.Quantity
+                : quantity;
+
+        if (approvedQuantity > quantity)
+        {
+            approvedQuantity = quantity;
+        }
+
+        request.SelectedSupplierId =
+            selectedOffer.SupplierId;
+
+        request.SelectedSupplierName =
+            selectedOffer.SupplierName;
+
+        request.SelectedSupplierPrice =
+            selectedOffer.PricePerUnit;
+
+        request.SelectedSupplierTelegramChatId =
+            selectedOffer.TelegramChatId;
+
+        request.EstimatedDeliveryDate =
+            selectedOffer.DeliveryDate;
+
+        request.Status =
+            MaterialRequestStatus.SupplierSelected;
 
         await _db.SaveChangesAsync();
 

@@ -8,46 +8,44 @@ public class ProcurementWorkflowService : IProcurementWorkflowService
 {
     private readonly ProcurementDbContext _db;
     private readonly InventoryCheckService _inventoryCheckService;
-    private readonly SupplierSelectionService _supplierSelectionService;
+    private readonly VendorApprovalService _vendorApprovalService;
     private readonly ProcurementRequestService _procurementRequestService;
     private readonly PurchaseOrderService _purchaseOrderService;
     private readonly DeliveryTrackingService _deliveryTrackingService;
     private readonly ILogger<ProcurementWorkflowService> _logger;
 
     public ProcurementWorkflowService(
-    ProcurementDbContext db,
-    InventoryCheckService inventoryCheckService,
-    SupplierSelectionService supplierSelectionService,
-    ProcurementRequestService procurementRequestService,
-    PurchaseOrderService purchaseOrderService,
-    DeliveryTrackingService deliveryTrackingService,
-    ILogger<ProcurementWorkflowService> logger)
+        ProcurementDbContext db,
+        InventoryCheckService inventoryCheckService,
+        VendorApprovalService vendorApprovalService,
+        ProcurementRequestService procurementRequestService,
+        PurchaseOrderService purchaseOrderService,
+        DeliveryTrackingService deliveryTrackingService,
+        ILogger<ProcurementWorkflowService> logger)
     {
         _db = db;
         _inventoryCheckService = inventoryCheckService;
-        _supplierSelectionService = supplierSelectionService;
+        _vendorApprovalService = vendorApprovalService;
         _procurementRequestService = procurementRequestService;
         _purchaseOrderService = purchaseOrderService;
-        _logger = logger;
         _deliveryTrackingService = deliveryTrackingService;
+        _logger = logger;
     }
 
     // ============================================================
     // START WORKFLOW
     //
-    // MaterialRequest already exists.
-    //
-    // Created
-    //    ↓
+    // MaterialRequest
+    //      ↓
     // Inventory Check
-    //    ↓
-    // Shortage?
-    //    ↓ yes
-    // Supplier Selection
-    //    ↓
-    // Procurement Request
-    //    ↓
-    // WAIT FOR HUMAN APPROVAL
+    //      ↓
+    // Shortage
+    //      ↓
+    // Vendor calculation
+    //      ↓
+    // External vendor approval
+    //      ↓
+    // WAIT
     // ============================================================
 
     public async Task StartFromMaterialRequestAsync(
@@ -62,10 +60,6 @@ public class ProcurementWorkflowService : IProcurementWorkflowService
             "Starting procurement workflow for MaterialRequest {MaterialRequestId}",
             materialRequestId);
 
-        // --------------------------------------------------------
-        // STEP 2: INVENTORY CHECK
-        // --------------------------------------------------------
-
         var inventoryResult =
             await _inventoryCheckService.CheckAsync(
                 materialRequestId);
@@ -77,79 +71,80 @@ public class ProcurementWorkflowService : IProcurementWorkflowService
             inventoryResult.SufficientStock,
             inventoryResult.Shortage);
 
-        // --------------------------------------------------------
-        // If there is enough stock, procurement is not required.
-        // --------------------------------------------------------
-
         if (inventoryResult.SufficientStock)
         {
             _logger.LogInformation(
-                "Inventory is sufficient. Procurement workflow finished for {MaterialRequestId}",
+                "Inventory is sufficient. Workflow finished for {MaterialRequestId}",
                 materialRequestId);
 
             return;
         }
 
-        // --------------------------------------------------------
-        // STEP 4: SUPPLIER SELECTION
-        // --------------------------------------------------------
-
-        var supplierResult =
-            await _supplierSelectionService.SelectSupplierAsync(
+        // Send all eligible vendors to external approval.
+        var vendorPayload =
+            await _vendorApprovalService.CreateAndSubmitAsync(
                 materialRequestId);
-
-        if (!supplierResult.Success)
-        {
-            _logger.LogWarning(
-                "No supplier available for MaterialRequest {MaterialRequestId}. Reason: {Reason}",
-                materialRequestId,
-                supplierResult.Reason);
-
-            return;
-        }
 
         _logger.LogInformation(
-            "Supplier selected for {MaterialRequestId}: {SupplierId} - {SupplierName}",
+            "Vendor approval request submitted for MaterialRequest {MaterialRequestId}. " +
+            "VendorCount={VendorCount}. Workflow is waiting for approval.",
             materialRequestId,
-            supplierResult.SelectedSupplier?.SupplierId,
-            supplierResult.SelectedSupplier?.SupplierName);
+            vendorPayload.Items.Count);
+    }
 
-        // --------------------------------------------------------
-        // STEP 5: GENERATE PROCUREMENT REQUEST
-        //
-        // This also submits the request to the approval gateway.
-        // --------------------------------------------------------
+    // ============================================================
+    // CONTINUE AFTER VENDOR APPROVAL
+    // ============================================================
+
+    public async Task ContinueAfterVendorApprovalAsync(
+        Guid materialRequestId)
+    {
+        var request = await _db.MaterialRequests
+            .FirstOrDefaultAsync(x => x.Id == materialRequestId)
+            ?? throw new InvalidOperationException(
+                "Material request not found.");
+
+        if (request.Status != MaterialRequestStatus.SupplierSelected)
+        {
+            _logger.LogWarning(
+                "MaterialRequest {MaterialRequestId} is not SupplierSelected. " +
+                "Current status: {Status}",
+                materialRequestId,
+                request.Status);
+
+            return;
+        }
+
+        var existingProcurementRequest =
+            await _db.ProcurementRequests
+                .FirstOrDefaultAsync(
+                    x => x.MaterialRequestId == materialRequestId &&
+                         x.Status != ProcurementRequestStatus.Rejected);
+
+        if (existingProcurementRequest is not null)
+        {
+            _logger.LogInformation(
+                "ProcurementRequest {ProcurementRequestId} already exists " +
+                "for MaterialRequest {MaterialRequestId}. Skipping duplicate generation.",
+                existingProcurementRequest.Id,
+                materialRequestId);
+
+            return;
+        }
 
         var procurementRequest =
             await _procurementRequestService.GenerateAsync(
                 materialRequestId);
 
         _logger.LogInformation(
-            "Procurement request {ProcurementRequestId} created " +
-            "for MaterialRequest {MaterialRequestId}. " +
-            "Workflow is now waiting for human approval.",
+            "ProcurementRequest {ProcurementRequestId} created for " +
+            "MaterialRequest {MaterialRequestId}. Waiting for procurement approval.",
             procurementRequest.Id,
             materialRequestId);
-
-        // --------------------------------------------------------
-        // STOP HERE.
-        //
-        // Human procurement approval is required.
-        // The approval callback will resume the workflow.
-        // --------------------------------------------------------
     }
-
 
     // ============================================================
     // CONTINUE AFTER PROCUREMENT APPROVAL
-    //
-    // Approved ProcurementRequest
-    //            ↓
-    //       Generate PO
-    //            ↓
-    //       PO Approval
-    //            ↓
-    //          WAIT
     // ============================================================
 
     public async Task ContinueAfterProcurementApprovalAsync(
@@ -162,82 +157,63 @@ public class ProcurementWorkflowService : IProcurementWorkflowService
             ?? throw new InvalidOperationException(
                 "Procurement request not found.");
 
-        // Only continue when actually approved.
         if (procurementRequest.Status !=
             ProcurementRequestStatus.Approved)
         {
             _logger.LogWarning(
-                "Procurement request {ProcurementRequestId} " +
-                "is not approved. Current status: {Status}",
+                "ProcurementRequest {ProcurementRequestId} is not approved. " +
+                "Current status: {Status}",
                 procurementRequestId,
                 procurementRequest.Status);
 
             return;
         }
 
-        // --------------------------------------------------------
-        // SAFETY:
-        // Do not create a second PO if this workflow callback
-        // happens twice.
-        // --------------------------------------------------------
-
         var existingPo =
             await _db.PurchaseOrders
                 .FirstOrDefaultAsync(
-                    x => x.ProcurementRequestId ==
-                         procurementRequestId);
+                    x => x.ProcurementRequestId == procurementRequestId);
 
         if (existingPo is not null)
         {
             _logger.LogInformation(
-                "PO {PurchaseOrderId} already exists for " +
-                "ProcurementRequest {ProcurementRequestId}. " +
-                "Skipping duplicate generation.",
+                "PurchaseOrder {PurchaseOrderId} already exists for " +
+                "ProcurementRequest {ProcurementRequestId}. Skipping duplicate generation.",
                 existingPo.Id,
                 procurementRequestId);
 
             return;
         }
 
-        // --------------------------------------------------------
-        // STEP 7: GENERATE PURCHASE ORDER
-        // --------------------------------------------------------
-
         var purchaseOrder =
             await _purchaseOrderService.GenerateAsync(
                 procurementRequestId);
 
         _logger.LogInformation(
-            "Purchase Order {PurchaseOrderId} generated " +
-            "for ProcurementRequest {ProcurementRequestId}. " +
-            "Workflow is now waiting for PO approval.",
+            "PurchaseOrder {PurchaseOrderId} generated for " +
+            "ProcurementRequest {ProcurementRequestId}. Waiting for PO approval.",
             purchaseOrder.Id,
             procurementRequestId);
-
-        // --------------------------------------------------------
-        // STOP HERE.
-        //
-        // Human PO approval is required.
-        // The PO approval callback will resume the workflow.
-        // --------------------------------------------------------
     }
-
 
     // ============================================================
     // CONTINUE AFTER PO APPROVAL
     // ============================================================
 
-    public async Task ContinueAfterPurchaseOrderApprovalAsync(Guid purchaseOrderId)
+    public async Task ContinueAfterPurchaseOrderApprovalAsync(
+        Guid purchaseOrderId)
     {
         var purchaseOrder =
             await _db.PurchaseOrders
-                .FirstOrDefaultAsync(x => x.Id == purchaseOrderId)
-            ?? throw new InvalidOperationException("Purchase order not found.");
+                .FirstOrDefaultAsync(
+                    x => x.Id == purchaseOrderId)
+            ?? throw new InvalidOperationException(
+                "Purchase order not found.");
 
         if (purchaseOrder.Status != PurchaseOrderStatus.Approved)
         {
             _logger.LogWarning(
-                "Purchase order {PurchaseOrderId} is not approved. " +
+                "PurchaseOrder {PurchaseOrderId} is not approved. " +
                 "Current status: {Status}",
                 purchaseOrderId,
                 purchaseOrder.Status);
@@ -245,16 +221,11 @@ public class ProcurementWorkflowService : IProcurementWorkflowService
             return;
         }
 
-        _logger.LogInformation(
-            "Purchase Order {PurchaseOrderId} approved. " +
-            "Sending order to vendor.",
+        await _deliveryTrackingService.SendOrderAsync(
             purchaseOrderId);
 
-        await _deliveryTrackingService.SendOrderAsync(purchaseOrderId);
-
         _logger.LogInformation(
-            "Purchase Order {PurchaseOrderId} sent to vendor. " +
-            "Workflow is now waiting for vendor confirmation.",
+            "PurchaseOrder {PurchaseOrderId} sent to vendor.",
             purchaseOrderId);
     }
 }

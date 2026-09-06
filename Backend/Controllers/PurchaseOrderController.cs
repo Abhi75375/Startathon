@@ -18,7 +18,8 @@ public class PurchaseOrderController : ControllerBase
         _workflowService = workflowService;
     }
 
-    [HttpPost("procurement-requests/{procurementRequestId}/generate-po")]
+    [HttpPost(
+        "procurement-requests/{procurementRequestId}/generate-po")]
     public async Task<IActionResult> Generate(
         Guid procurementRequestId)
     {
@@ -47,7 +48,7 @@ public class PurchaseOrderController : ControllerBase
     [HttpPost("purchase-orders/{id}/decision")]
     public async Task<IActionResult> RecordDecision(
         Guid id,
-        PoDecisionDto dto)
+        [FromBody] PoDecisionDto dto)
     {
         try
         {
@@ -58,8 +59,6 @@ public class PurchaseOrderController : ControllerBase
                     dto.Approved,
                     dto.RejectionReason);
 
-            // IMPORTANT:
-            // If approved, immediately continue.
             if (dto.Approved)
             {
                 await _workflowService

@@ -18,13 +18,24 @@ public class ProcurementRequestController : ControllerBase
         _workflowService = workflowService;
     }
 
-    [HttpPost("material-requests/{id}/generate-procurement-request")]
+    [HttpPost(
+        "material-requests/{id}/generate-procurement-request")]
     public async Task<IActionResult> Generate(Guid id)
     {
-        var procurementRequest =
-            await _service.GenerateAsync(id);
+        try
+        {
+            var procurementRequest =
+                await _service.GenerateAsync(id);
 
-        return Ok(procurementRequest);
+            return Ok(procurementRequest);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new
+            {
+                error = ex.Message
+            });
+        }
     }
 
     public record ProcurementDecisionDto(
@@ -35,7 +46,7 @@ public class ProcurementRequestController : ControllerBase
     [HttpPost("procurement-requests/{id}/decision")]
     public async Task<IActionResult> RecordDecision(
         Guid id,
-        ProcurementDecisionDto dto)
+        [FromBody] ProcurementDecisionDto dto)
     {
         try
         {
@@ -46,8 +57,6 @@ public class ProcurementRequestController : ControllerBase
                     dto.Approved,
                     dto.RejectionReason);
 
-            // IMPORTANT:
-            // If approved, immediately continue the workflow.
             if (dto.Approved)
             {
                 await _workflowService

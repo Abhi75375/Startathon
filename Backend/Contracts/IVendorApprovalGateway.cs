@@ -2,7 +2,8 @@ namespace Backend.Contracts;
 
 public interface IVendorApprovalGateway
 {
-    Task SubmitForApprovalAsync(VendorApprovalPayload payload);
+    Task SubmitForApprovalAsync(
+        VendorApprovalPayload payload);
 }
 
 public record VendorApprovalPayload(

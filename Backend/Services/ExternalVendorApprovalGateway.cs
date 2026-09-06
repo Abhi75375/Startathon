@@ -3,24 +3,29 @@ using Backend.Contracts;
 
 namespace Backend.Services;
 
-public class ExternalVendorApprovalGateway : IVendorApprovalGateway
+public class ExternalVendorApprovalGateway
+    : IVendorApprovalGateway
 {
     private readonly HttpClient _httpClient;
     private readonly IConfiguration _configuration;
+    private readonly ILogger<ExternalVendorApprovalGateway> _logger;
 
     public ExternalVendorApprovalGateway(
         HttpClient httpClient,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        ILogger<ExternalVendorApprovalGateway> logger)
     {
         _httpClient = httpClient;
         _configuration = configuration;
+        _logger = logger;
     }
 
     public async Task SubmitForApprovalAsync(
         VendorApprovalPayload payload)
     {
         var endpoint =
-            _configuration["VendorApprovalSettings:SubmitEndpoint"];
+            _configuration[
+                "VendorApprovalSettings:SubmitEndpoint"];
 
         if (string.IsNullOrWhiteSpace(endpoint))
         {
@@ -28,10 +33,31 @@ public class ExternalVendorApprovalGateway : IVendorApprovalGateway
                 "VendorApprovalSettings:SubmitEndpoint is not configured.");
         }
 
-        using var response = await _httpClient.PostAsJsonAsync(
-            endpoint,
-            payload);
+        _logger.LogInformation(
+            "Sending vendor approval for MaterialRequest {MaterialRequestId}. " +
+            "VendorCount={VendorCount}",
+            payload.MaterialRequestId,
+            payload.Items.Count);
 
-        response.EnsureSuccessStatusCode();
+        using var response =
+            await _httpClient.PostAsJsonAsync(
+                endpoint,
+                payload);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var responseBody =
+                await response.Content.ReadAsStringAsync();
+
+            _logger.LogError(
+                "Vendor approval endpoint failed. " +
+                "Status={StatusCode}, Response={Response}",
+                response.StatusCode,
+                responseBody);
+
+            throw new HttpRequestException(
+                $"Vendor approval endpoint returned " +
+                $"{(int)response.StatusCode} ({response.StatusCode}).");
+        }
     }
 }

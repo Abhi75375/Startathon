@@ -9,20 +9,26 @@ namespace Backend.Controllers;
 public class VendorApprovalController : ControllerBase
 {
     private readonly VendorApprovalService _service;
+    private readonly IProcurementWorkflowService _workflowService;
 
-    public VendorApprovalController(VendorApprovalService service)
+    public VendorApprovalController(
+        VendorApprovalService service,
+        IProcurementWorkflowService workflowService)
     {
         _service = service;
+        _workflowService = workflowService;
     }
 
-    // Backend -> external approval/display system
+    // Backend -> external vendor approval system
     [HttpPost("{materialRequestId}/submit")]
-    public async Task<IActionResult> Submit(Guid materialRequestId)
+    public async Task<IActionResult> Submit(
+        Guid materialRequestId)
     {
         try
         {
-            var payload = await _service.CreateAndSubmitAsync(
-                materialRequestId);
+            var payload =
+                await _service.CreateAndSubmitAsync(
+                    materialRequestId);
 
             return Ok(payload);
         }
@@ -35,7 +41,7 @@ public class VendorApprovalController : ControllerBase
         }
     }
 
-    // External approval/display system -> Backend
+    // External vendor approval system -> Backend
     [HttpPost("decision")]
     public async Task<IActionResult> ReceiveDecision(
         [FromBody] VendorApprovalDecision decision)
@@ -43,12 +49,18 @@ public class VendorApprovalController : ControllerBase
         try
         {
             var approvedBy =
-                Request.Headers["X-Approved-By"].FirstOrDefault()
+                Request.Headers["X-Approved-By"]
+                    .FirstOrDefault()
                 ?? "ExternalApprovalSystem";
 
-            var result = await _service.RecordApprovalAsync(
-                decision,
-                approvedBy);
+            var result =
+                await _service.RecordApprovalAsync(
+                    decision,
+                    approvedBy);
+
+            await _workflowService
+                .ContinueAfterVendorApprovalAsync(
+                    result.Id);
 
             return Ok(result);
         }
