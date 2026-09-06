@@ -52,6 +52,8 @@ builder.Services.AddScoped<PurchaseOrderService>();
 
 builder.Services.AddScoped<IProcurementWorkflowService, ProcurementWorkflowService>();
 
+builder.Services.AddScoped<IVendorReplyParser, VendorReplyParser>();
+
 var useFakeNotifications = builder.Configuration.GetValue<bool>("NotificationSettings:UseFake");
 
 if (useFakeNotifications)

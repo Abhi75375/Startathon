@@ -56,40 +56,83 @@ public class DeliveryTrackingService
     }
 
     // NEW - THE CONTRACT METHOD: called once the Telegram webhook figures out what the vendor said
-    public async Task<PurchaseOrder> RecordVendorResponseAsync(Guid purchaseOrderId, bool sufficientStock, decimal? availableQuantity, string? rawMessage = null)
+    public async Task<PurchaseOrder> RecordVendorResponseAsync(
+    Guid purchaseOrderId,
+    bool sufficientStock,
+    decimal? availableQuantity,
+    string? rawMessage = null)
+{
+    var po = await _db.PurchaseOrders.FindAsync(purchaseOrderId)
+        ?? throw new InvalidOperationException("Purchase order not found");
+
+    var materialRequest = await _db.MaterialRequests
+        .FindAsync(po.MaterialRequestId)
+        ?? throw new InvalidOperationException(
+            "Linked material request not found");
+
+    po.VendorRespondedAt = DateTime.UtcNow;
+    po.VendorConfirmedQuantity = availableQuantity;
+
+    // YES without a quantity means the vendor can supply
+    // the entire current PO quantity.
+    decimal suppliedQuantity = sufficientStock
+        ? (availableQuantity ?? po.Quantity)
+        : 0;
+
+    // Never allow a vendor to claim more than we requested.
+    suppliedQuantity = Math.Min(
+        suppliedQuantity,
+        po.Quantity);
+
+    decimal remainingQuantity =
+        po.Quantity - suppliedQuantity;
+
+    // ------------------------------------------------------------
+    // FULL FULFILLMENT
+    // ------------------------------------------------------------
+
+    if (remainingQuantity <= 0)
     {
-        var po = await _db.PurchaseOrders.FindAsync(purchaseOrderId)
-            ?? throw new InvalidOperationException("Purchase order not found");
+        po.VendorConfirmationStatus =
+            VendorConfirmationStatus.Confirmed;
 
-        po.VendorRespondedAt = DateTime.UtcNow;
-        po.VendorConfirmedQuantity = availableQuantity;
+        po.DeliveryStatus =
+            DeliveryStatus.Ordered;
 
-        // Treat "yes but not enough" the same as "no" - the vendor can't fulfill this order as-is
-        bool actuallySufficient = sufficientStock && (availableQuantity is null || availableQuantity >= po.Quantity);
+        po.OrderedAt = DateTime.UtcNow;
 
-        if (actuallySufficient)
-        {
-            po.VendorConfirmationStatus = VendorConfirmationStatus.Confirmed;
-            po.DeliveryStatus = DeliveryStatus.Ordered;
-            po.OrderedAt = DateTime.UtcNow;
+        materialRequest.ShortageQuantity = 0;
+        materialRequest.Status =
+            MaterialRequestStatus.Ordered;
 
-            var materialRequest = await _db.MaterialRequests.FindAsync(po.MaterialRequestId)
-                ?? throw new InvalidOperationException("Linked material request not found");
-            materialRequest.Status = MaterialRequestStatus.Ordered;
-
-            await _db.SaveChangesAsync();
-            return po;
-        }
-
-        po.VendorConfirmationStatus = VendorConfirmationStatus.Declined;
         await _db.SaveChangesAsync();
 
-        await EscalateToNextVendorAsync(po);
         return po;
     }
 
-    private async Task EscalateToNextVendorAsync(PurchaseOrder failedPo)
-    {
+    // ------------------------------------------------------------
+    // PARTIAL / FAILED FULFILLMENT
+    // ------------------------------------------------------------
+
+    po.VendorConfirmationStatus =
+        VendorConfirmationStatus.Declined;
+
+    // The remaining quantity becomes the new procurement quantity.
+    materialRequest.ShortageQuantity = remainingQuantity;
+
+    await _db.SaveChangesAsync();
+
+    await EscalateToNextVendorAsync(
+        po,
+        remainingQuantity);
+
+    return po;
+}
+
+    private async Task EscalateToNextVendorAsync(
+    PurchaseOrder failedPo,
+    decimal remainingQuantity) 
+       {
         var materialRequest = await _db.MaterialRequests.FindAsync(failedPo.MaterialRequestId)
             ?? throw new InvalidOperationException("Linked material request not found");
 
