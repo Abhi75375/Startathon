@@ -21,52 +21,86 @@ public class MaterialEstimationService
     }
 
     public async Task<List<MaterialEstimate>> EstimateAsync(Guid projectId)
+{
+    var currentProject =
+        await _projectDataService.GetProjectDataAsync(projectId);
+
+    var historicalProjects =
+        await _historicalDataService
+            .GetHistoricalProjectsAsync(currentProject.BuildType);
+
+    var allMaterialCodes = historicalProjects
+        .SelectMany(p => p.MaterialsUsed.Keys)
+        .Distinct();
+
+    var effectiveArea =
+        currentProject.AreaSqFt *
+        Math.Max(currentProject.NumberOfFloors, 1);
+
+    var estimates = new List<MaterialEstimate>();
+
+    foreach (var materialCode in allMaterialCodes)
     {
-        var currentProject = await _projectDataService.GetProjectDataAsync(projectId);
-        var historicalProjects = await _historicalDataService.GetHistoricalProjectsAsync(currentProject.BuildType);
+        var rates = historicalProjects
+            .Where(p =>
+                p.MaterialsUsed.ContainsKey(materialCode) &&
+                p.Area > 0)
+            .Select(p =>
+                p.MaterialsUsed[materialCode] / p.Area)
+            .ToList();
 
-        // Collect every material code that appears across historical projects
-        var allMaterialCodes = historicalProjects
-            .SelectMany(p => p.MaterialsUsed.Keys)
-            .Distinct();
+        if (rates.Count == 0)
+            continue;
 
-        var estimates = new List<MaterialEstimate>();
+        decimal averageRate = rates.Average();
 
-        foreach (var materialCode in allMaterialCodes)
+        decimal estimatedQuantity =
+            averageRate * effectiveArea;
+
+        decimal variationRatio =
+            CalculateCoefficientOfVariation(
+                rates,
+                averageRate);
+
+        bool enoughSamples =
+            rates.Count >= MinimumSampleSize;
+
+        bool consistentEnough =
+            variationRatio <= MaxAcceptableVariationRatio;
+
+        decimal confidenceScore =
+            enoughSamples && consistentEnough
+                ? 1.0m - variationRatio
+                : 0.5m -
+                  Math.Min(variationRatio, 0.5m);
+
+        estimates.Add(new MaterialEstimate
         {
-            // Usage rate = quantity used / project area, for every historical project that used this material
-            var rates = historicalProjects
-                .Where(p => p.MaterialsUsed.ContainsKey(materialCode) && p.Area > 0)
-                .Select(p => p.MaterialsUsed[materialCode] / p.Area)
-                .ToList();
+            MaterialCode = materialCode,
 
-            if (rates.Count == 0) continue;
+            EstimatedQuantity =
+                Math.Round(
+                    estimatedQuantity,
+                    2),
 
-            decimal averageRate = rates.Average();
-            decimal estimatedQuantity = averageRate * currentProject.Area;
+            SampleSize = rates.Count,
 
-            // Confidence: based on sample size AND how consistent the rates are with each other.
-            // Coefficient of variation = stdDev / mean -> lower is more consistent/trustworthy.
-            decimal variationRatio = CalculateCoefficientOfVariation(rates, averageRate);
-            bool enoughSamples = rates.Count >= MinimumSampleSize;
-            bool consistentEnough = variationRatio <= MaxAcceptableVariationRatio;
+            ConfidenceScore =
+                Math.Round(
+                    Math.Clamp(
+                        confidenceScore,
+                        0m,
+                        1m),
+                    2),
 
-            decimal confidenceScore = enoughSamples && consistentEnough
-                ? 1.0m - variationRatio // higher consistency -> closer to 1.0
-                : 0.5m - Math.Min(variationRatio, 0.5m); // penalize inconsistency/small samples
-
-            estimates.Add(new MaterialEstimate
-            {
-                MaterialCode = materialCode,
-                EstimatedQuantity = Math.Round(estimatedQuantity, 2),
-                SampleSize = rates.Count,
-                ConfidenceScore = Math.Round(Math.Clamp(confidenceScore, 0m, 1m), 2),
-                NeedsLlmReview = !(enoughSamples && consistentEnough)
-            });
-        }
-
-        return estimates;
+            NeedsLlmReview =
+                !(enoughSamples &&
+                  consistentEnough)
+        });
     }
+
+    return estimates;
+}
 
     private static decimal CalculateCoefficientOfVariation(List<decimal> values, decimal mean)
     {

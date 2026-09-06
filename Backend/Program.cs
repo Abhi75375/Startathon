@@ -31,8 +31,15 @@ else
 
 builder.Services.AddScoped<InventoryCheckService>();
 
-builder.Services.AddScoped<IProjectDataService, FakeProjectDataService>();
+builder.Services.AddHttpClient<IProjectDataService, ProjectDataService>(client =>
+{
+    client.BaseAddress = new Uri(
+        builder.Configuration["ProjectApiSettings:BaseUrl"]!
+    );
+});
+
 builder.Services.AddScoped<IHistoricalProjectDataService, FakeHistoricalProjectDataService>();
+builder.Services.AddScoped<MaterialEstimationService>();builder.Services.AddScoped<IHistoricalProjectDataService, FakeHistoricalProjectDataService>();
 builder.Services.AddScoped<MaterialEstimationService>();
 
 builder.Services.AddScoped<ISupervisorReviewGateway, FakeSupervisorReviewGateway>();

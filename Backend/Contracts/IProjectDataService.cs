@@ -7,7 +7,13 @@ public interface IProjectDataService
 
 public record ProjectData(
     Guid ProjectId,
-    string BuildType,   // e.g. "Residential", "Warehouse"
-    decimal Area,        // in square meters
-    DateTime StartDate
+    string BuildType,
+    string StructureType,
+    string StructureName,
+    decimal AreaSqFt,
+    int NumberOfFloors,
+    decimal FloorHeightMeters,
+    string? TechnicalSpecifications,
+    DateTime? StartDate,
+    DateTime? CompletionDate
 );
