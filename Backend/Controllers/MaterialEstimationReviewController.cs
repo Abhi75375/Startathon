@@ -1,3 +1,4 @@
+using Backend.Contracts;
 using Backend.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,26 +10,35 @@ public class MaterialEstimationReviewController : ControllerBase
 {
     private readonly MaterialEstimationReviewService _service;
 
-    public MaterialEstimationReviewController(MaterialEstimationReviewService service)
+    public MaterialEstimationReviewController(
+        MaterialEstimationReviewService service)
     {
         _service = service;
     }
 
-    public record SubmitReviewDto(Guid ProjectId);
-
     [HttpPost("submit")]
-    public async Task<IActionResult> SubmitForReview(SubmitReviewDto dto)
+    public async Task<IActionResult> SubmitForReview(
+        [FromBody] ProjectData project)
     {
-        var review = await _service.CreateAndSubmitReviewAsync(dto.ProjectId);
+        var review = await _service.CreateAndSubmitReviewAsync(project);
+
         return Ok(review);
     }
 
-    public record DecisionDto(string ReviewedBy, List<SupervisorDecisionItem> Decisions);
+    public record DecisionDto(
+        string ReviewedBy,
+        List<SupervisorDecisionItem> Decisions);
 
     [HttpPost("{reviewId}/decision")]
-    public async Task<IActionResult> RecordDecision(Guid reviewId, DecisionDto dto)
+    public async Task<IActionResult> RecordDecision(
+        Guid reviewId,
+        [FromBody] DecisionDto dto)
     {
-        var createdRequests = await _service.RecordDecisionAsync(reviewId, dto.ReviewedBy, dto.Decisions);
+        var createdRequests = await _service.RecordDecisionAsync(
+            reviewId,
+            dto.ReviewedBy,
+            dto.Decisions);
+
         return Ok(createdRequests);
     }
 }
