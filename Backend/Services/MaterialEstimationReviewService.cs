@@ -9,98 +9,166 @@ public class MaterialEstimationReviewService
 {
     private readonly ProcurementDbContext _db;
     private readonly MaterialEstimationService _estimationService;
-    private readonly ISupervisorReviewGateway _reviewGateway;
+    private readonly IMaterialEstimationFrontendGateway _frontendGateway;
 
     public MaterialEstimationReviewService(
         ProcurementDbContext db,
         MaterialEstimationService estimationService,
-        ISupervisorReviewGateway reviewGateway)
+        IMaterialEstimationFrontendGateway frontendGateway)
     {
         _db = db;
         _estimationService = estimationService;
-        _reviewGateway = reviewGateway;
+        _frontendGateway = frontendGateway;
     }
 
-    // Step A: estimate materials, save as a pending review, send to middleware
-    public async Task<MaterialEstimationReview> CreateAndSubmitReviewAsync(ProjectData project)
+    // Step A:
+    // 1. Calculate the estimates
+    // 2. Save the estimates to PostgreSQL
+    // 3. Fetch the saved review from PostgreSQL
+    // 4. Send the saved data to the frontend
+    public async Task<MaterialEstimationReview> CreateAndSubmitReviewAsync(
+        ProjectData project)
     {
-        var estimates = await _estimationService.EstimateAsync(project);
+        // -----------------------------------------
+        // 1. Calculate estimates
+        // -----------------------------------------
+
+        var estimates =
+            await _estimationService.EstimateAsync(project);
+
+        // -----------------------------------------
+        // 2. Save estimates to database
+        // -----------------------------------------
 
         var review = new MaterialEstimationReview
         {
             ProjectId = project.ProjectId,
-            Items = estimates.Select(e => new MaterialEstimationReviewItem
-            {
-                MaterialCode = e.MaterialCode,
-                AiEstimatedQuantity = e.EstimatedQuantity,
-                FinalQuantity = e.EstimatedQuantity
-            }).ToList()
+            Items = estimates
+                .Select(e => new MaterialEstimationReviewItem
+                {
+                    MaterialCode = e.MaterialCode,
+                    AiEstimatedQuantity = e.EstimatedQuantity,
+                    FinalQuantity = e.EstimatedQuantity,
+                    Approved = false
+                })
+                .ToList()
         };
 
         _db.MaterialEstimationReviews.Add(review);
+
         await _db.SaveChangesAsync();
 
-        var payload = review.Items
-            .Select(i => new ReviewItemPayload(
-                i.MaterialCode,
-                i.AiEstimatedQuantity))
+        // At this point the review and all items
+        // definitely exist in PostgreSQL.
+
+        // -----------------------------------------
+        // 3. Fetch the saved data from database
+        // -----------------------------------------
+
+        var savedReview =
+            await _db.MaterialEstimationReviews
+                .AsNoTracking()
+                .Include(r => r.Items)
+                .FirstOrDefaultAsync(r => r.Id == review.Id);
+
+        if (savedReview is null)
+        {
+            throw new InvalidOperationException(
+                $"Saved material estimation review {review.Id} could not be found.");
+        }
+
+        // -----------------------------------------
+        // 4. Build frontend payload from DB data
+        // -----------------------------------------
+
+        var materials = savedReview.Items
+            .Select(item => new MaterialEstimationPayload(
+                item.MaterialCode,
+                item.AiEstimatedQuantity))
             .ToList();
 
-        await _reviewGateway.SubmitForReviewAsync(
-            review.Id,
-            project.ProjectId,
-            payload);
+        // -----------------------------------------
+        // 5. Send saved DB data to frontend
+        // -----------------------------------------
 
-        return review;
+        await _frontendGateway.SendMaterialEstimationAsync(
+            savedReview.Id,
+            savedReview.ProjectId,
+            materials);
+
+        return savedReview;
     }
 
-    // Step B: middleware calls this back with the supervisor's decision
+    // Step B:
+    // Middleware/frontend sends supervisor's decision
     public async Task<List<MaterialRequest>> RecordDecisionAsync(
         Guid reviewId,
         string reviewedBy,
         List<SupervisorDecisionItem> decisions)
     {
-        var review = await _db.MaterialEstimationReviews
-            .Include(r => r.Items)
-            .FirstOrDefaultAsync(r => r.Id == reviewId)
-            ?? throw new InvalidOperationException("Review not found");
+        var review =
+            await _db.MaterialEstimationReviews
+                .Include(r => r.Items)
+                .FirstOrDefaultAsync(r => r.Id == reviewId)
+                ?? throw new InvalidOperationException(
+                    "Review not found");
 
-        var createdRequests = new List<MaterialRequest>();
+        var createdRequests =
+            new List<MaterialRequest>();
 
         foreach (var decision in decisions)
         {
             var item = review.Items
-                .FirstOrDefault(i => i.MaterialCode == decision.MaterialCode);
+                .FirstOrDefault(i =>
+                    i.MaterialCode == decision.MaterialCode);
 
             if (item is null)
                 continue;
 
-            item.FinalQuantity = decision.FinalQuantity;
-            item.Approved = decision.Approved;
+            item.FinalQuantity =
+                decision.FinalQuantity;
+
+            item.Approved =
+                decision.Approved;
 
             if (decision.Approved)
             {
                 var request = new MaterialRequest
                 {
-                    MaterialEstimationReviewId = review.Id,
-                    MaterialCode = item.MaterialCode,
-                    QuantityRequested = decision.FinalQuantity,
-                    RequestedBy = reviewedBy,
+                    MaterialEstimationReviewId =
+                        review.Id,
+
+                    MaterialCode =
+                        item.MaterialCode,
+
+                    QuantityRequested =
+                        decision.FinalQuantity,
+
+                    RequestedBy =
+                        reviewedBy,
+
                     GeneratedByAi = true,
-                    ProjectId = review.ProjectId
+
+                    ProjectId =
+                        review.ProjectId
                 };
 
                 _db.MaterialRequests.Add(request);
+
                 createdRequests.Add(request);
             }
         }
 
-        review.Status = decisions.Any(d => d.Approved)
-            ? ReviewStatus.Approved
-            : ReviewStatus.Rejected;
+        review.Status =
+            decisions.Any(d => d.Approved)
+                ? ReviewStatus.Approved
+                : ReviewStatus.Rejected;
 
-        review.ReviewedBy = reviewedBy;
-        review.ReviewedAt = DateTime.UtcNow;
+        review.ReviewedBy =
+            reviewedBy;
+
+        review.ReviewedAt =
+            DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
 

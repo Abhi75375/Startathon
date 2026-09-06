@@ -13,62 +13,185 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
 
 builder.Services.AddDbContext<ProcurementDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString("Default")));
 
-var useFakeInventory = builder.Configuration.GetValue<bool>("ErpSettings:UseFake");
+
+// ======================================================
+// INVENTORY
+// ======================================================
+
+var useFakeInventory =
+    builder.Configuration.GetValue<bool>(
+        "ErpSettings:UseFake");
 
 if (useFakeInventory)
 {
-    builder.Services.AddScoped<IInventoryService, FakeInventoryService>();
+    builder.Services.AddScoped<
+        IInventoryService,
+        FakeInventoryService>();
 }
 else
 {
-    builder.Services.AddHttpClient<IInventoryService, ErpInventoryService>(client =>
-    {
-        client.BaseAddress = new Uri(builder.Configuration["ErpSettings:BaseUrl"]!);
-    });
+    builder.Services.AddHttpClient<
+        IInventoryService,
+        ErpInventoryService>(
+        client =>
+        {
+            client.BaseAddress =
+                new Uri(
+                    builder.Configuration[
+                        "ErpSettings:BaseUrl"]!);
+        });
 }
 
-builder.Services.AddScoped<InventoryCheckService>();
+builder.Services.AddScoped<
+    InventoryCheckService>();
 
-builder.Services.AddScoped<IProjectDataService, FakeProjectDataService>();
-builder.Services.AddScoped<IHistoricalProjectDataService, FakeHistoricalProjectDataService>();
-builder.Services.AddScoped<MaterialEstimationService>();
-builder.Services.AddScoped<ISupervisorReviewGateway, FakeSupervisorReviewGateway>();
-builder.Services.AddScoped<MaterialEstimationReviewService>();
-builder.Services.AddScoped<ISupplierService, VendorService>();
-builder.Services.AddScoped<IBudgetService, FakeBudgetService>();
-builder.Services.AddScoped<SupplierSelectionService>();
 
-builder.Services.AddScoped<ProcurementRequestService>();
-builder.Services.AddScoped<IProcurementApprovalGateway, FakeProcurementApprovalGateway>();
-builder.Services.AddHttpClient<IWhatsAppService,MetaWhatsAppService>();
-builder.Services.AddHttpClient<ITelegramService, TelegramService>();
+// ======================================================
+// PROJECT + MATERIAL ESTIMATION
+// ======================================================
 
-builder.Services.AddScoped<IPoApprovalGateway, FakePoApprovalGateway>();
-builder.Services.AddScoped<PurchaseOrderService>();
+builder.Services.AddScoped<
+    IProjectDataService,
+    FakeProjectDataService>();
 
-builder.Services.AddScoped<IProcurementWorkflowService, ProcurementWorkflowService>();
+builder.Services.AddScoped<
+    IHistoricalProjectDataService,
+    FakeHistoricalProjectDataService>();
 
-builder.Services.AddScoped<IVendorReplyParser, VendorReplyParser>();
+builder.Services.AddScoped<
+    MaterialEstimationService>();
 
-var useFakeNotifications = builder.Configuration.GetValue<bool>("NotificationSettings:UseFake");
+
+// ======================================================
+// FRONTEND MATERIAL ESTIMATION DELIVERY
+// ======================================================
+
+builder.Services.AddHttpClient<
+    IMaterialEstimationFrontendGateway,
+    MaterialEstimationFrontendGateway>(
+    client =>
+    {
+        var baseUrl =
+            builder.Configuration[
+                "FrontendSettings:BaseUrl"];
+
+        if (string.IsNullOrWhiteSpace(baseUrl))
+        {
+            throw new InvalidOperationException(
+                "FrontendSettings:BaseUrl is not configured.");
+        }
+
+        client.BaseAddress =
+            new Uri(baseUrl);
+
+        client.Timeout =
+            TimeSpan.FromSeconds(30);
+    });
+
+builder.Services.AddScoped<
+    MaterialEstimationReviewService>();
+
+
+// ======================================================
+// SUPPLIERS
+// ======================================================
+
+builder.Services.AddScoped<
+    ISupplierService,
+    VendorService>();
+
+builder.Services.AddScoped<
+    IBudgetService,
+    FakeBudgetService>();
+
+builder.Services.AddScoped<
+    SupplierSelectionService>();
+
+
+// ======================================================
+// PROCUREMENT REQUEST
+// ======================================================
+
+builder.Services.AddScoped<
+    ProcurementRequestService>();
+
+builder.Services.AddScoped<
+    IProcurementApprovalGateway,
+    FakeProcurementApprovalGateway>();
+
+
+// ======================================================
+// COMMUNICATION
+// ======================================================
+
+builder.Services.AddHttpClient<
+    IWhatsAppService,
+    MetaWhatsAppService>();
+
+builder.Services.AddHttpClient<
+    ITelegramService,
+    TelegramService>();
+
+
+// ======================================================
+// PURCHASE ORDER
+// ======================================================
+
+builder.Services.AddScoped<
+    IPoApprovalGateway,
+    FakePoApprovalGateway>();
+
+builder.Services.AddScoped<
+    PurchaseOrderService>();
+
+builder.Services.AddScoped<
+    IProcurementWorkflowService,
+    ProcurementWorkflowService>();
+
+
+// ======================================================
+// TELEGRAM VENDOR RESPONSE
+// ======================================================
+
+builder.Services.AddScoped<
+    IVendorReplyParser,
+    VendorReplyParser>();
+
+var useFakeNotifications =
+    builder.Configuration.GetValue<bool>(
+        "NotificationSettings:UseFake");
 
 if (useFakeNotifications)
 {
-    builder.Services.AddScoped<IOrderNotificationGateway, FakeOrderNotificationGateway>();
+    builder.Services.AddScoped<
+        IOrderNotificationGateway,
+        FakeOrderNotificationGateway>();
 }
 else
 {
-    builder.Services.AddScoped<IOrderNotificationGateway, TelegramOrderNotificationGateway>();
+    builder.Services.AddScoped<
+        IOrderNotificationGateway,
+        TelegramOrderNotificationGateway>();
 }
-builder.Services.AddScoped<DeliveryTrackingService>();
 
+builder.Services.AddScoped<
+    DeliveryTrackingService>();
+
+
+// ======================================================
+// BUILD APP
+// ======================================================
 
 var app = builder.Build();
 
 app.MapOpenApi();
 app.MapScalarApiReference();
-//app.UseHttpsRedirection();
+
+// app.UseHttpsRedirection();
+
 app.MapControllers();
+
 app.Run();
