@@ -39,9 +39,7 @@ builder.Services.AddHttpClient<IProjectDataService, ProjectDataService>(client =
 });
 
 builder.Services.AddScoped<IHistoricalProjectDataService, FakeHistoricalProjectDataService>();
-builder.Services.AddScoped<MaterialEstimationService>();builder.Services.AddScoped<IHistoricalProjectDataService, FakeHistoricalProjectDataService>();
 builder.Services.AddScoped<MaterialEstimationService>();
-
 builder.Services.AddScoped<ISupervisorReviewGateway, FakeSupervisorReviewGateway>();
 builder.Services.AddScoped<MaterialEstimationReviewService>();
 
