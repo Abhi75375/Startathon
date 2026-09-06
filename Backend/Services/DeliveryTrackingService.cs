@@ -157,8 +157,15 @@ public class DeliveryTrackingService
         failedPo.SupplierId = nextOffer.SupplierId;
         failedPo.SupplierName = nextOffer.SupplierName;
         failedPo.SupplierTelegramChatId = nextOffer.TelegramChatId;
+
+        // IMPORTANT:
+        // The next supplier only needs to provide the remaining quantity.
+        failedPo.Quantity = remainingQuantity;
+
         failedPo.UnitPrice = nextOffer.PricePerUnit;
-        failedPo.TotalCost = failedPo.Quantity * nextOffer.PricePerUnit;
+        failedPo.TotalCost =
+            remainingQuantity * nextOffer.PricePerUnit;
+
         failedPo.EstimatedDeliveryDate = nextOffer.DeliveryDate;
         failedPo.VendorConfirmationStatus = VendorConfirmationStatus.NotSent;
         failedPo.VendorRespondedAt = null;
