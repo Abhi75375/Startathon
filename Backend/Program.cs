@@ -23,6 +23,9 @@ builder.Services.AddDbContext<ProcurementDbContext>(
 // INVENTORY
 // ======================================================
 
+// Backend/Program.cs
+// ERP registration
+
 var useFakeInventory =
     builder.Configuration.GetValue<bool>(
         "ErpSettings:UseFake");
@@ -44,6 +47,9 @@ else
                 new Uri(
                     builder.Configuration[
                         "ErpSettings:BaseUrl"]!);
+
+            client.Timeout =
+                TimeSpan.FromSeconds(30);
         });
 }
 
@@ -68,30 +74,12 @@ builder.Services.AddScoped<
 
 
 // ======================================================
-// MATERIAL ESTIMATION EXTERNAL DELIVERY
+// MATERIAL ESTIMATION DELIVERY
 // ======================================================
 
-builder.Services.AddHttpClient<
+builder.Services.AddScoped<
     IMaterialEstimationFrontendGateway,
-    MaterialEstimationFrontendGateway>(
-    client =>
-    {
-        var baseUrl =
-            builder.Configuration[
-                "FrontendSettings:BaseUrl"];
-
-        if (string.IsNullOrWhiteSpace(baseUrl))
-        {
-            throw new InvalidOperationException(
-                "FrontendSettings:BaseUrl is not configured.");
-        }
-
-        client.BaseAddress =
-            new Uri(baseUrl);
-
-        client.Timeout =
-            TimeSpan.FromSeconds(30);
-    });
+    FakeMaterialEstimationFrontendGateway>();
 
 builder.Services.AddScoped<
     MaterialEstimationReviewService>();
@@ -198,6 +186,8 @@ else
 
 builder.Services.AddScoped<
     DeliveryTrackingService>();
+
+    
 
 
 // ======================================================
